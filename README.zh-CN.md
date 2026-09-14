@@ -6,7 +6,7 @@ DSH 插件 — 在 DSH Web GUI 聊天输入框左侧添加可自定义的快捷�
 
 ## 功能
 
-按钮只有一种行为（`mode: "insert"`，单次插入）：每次点击把 `/命令 ` 插入到输入框已有内容**之前**（内容为空时就是开头），再点再插。不执行任何宿主命令、没有常驻状态，视觉上是蓝色文字 + ⌨ 图标。
+按钮只有一种行为（`mode: "insert"`，单次插入）：每次点击把 `/命令 ` 插入到输入框已有内容**之前**（内容为空时就是开头），再点再插。不执行任何宿主命令、没有常驻状态，视觉上是纯蓝色文字标签（无图标）。
 
 - **设置面板**：Settings → "Switch Buttons"，可添加、编辑、删除、启用/禁用按钮；底部动态展示当前会话可用的斜杠命令参考（中英双语）
 - **配置持久化**：保存在 Host 端 settings.yaml 的 `dsh-switch` 命名空间，清浏览器缓存不丢；localStorage 仅作首屏缓存
@@ -14,15 +14,37 @@ DSH 插件 — 在 DSH Web GUI 聊天输入框左侧添加可自定义的快捷�
 
 ## 安装
 
-```bash
-# 本地开发安装（junction 链接，改代码即生效）
-dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
+> ⚠️ **profile 里已有 git 依赖（如 `aegis`）时不要跑 `dsh plugin add`**：该 CLI 转调 pnpm，pnpm 解析 git 依赖时可能静默永久挂起。请用下面的路径 ②——不依赖 pnpm、无需联网。
 
-# 或从 git 安装（公开仓库）
-dsh plugin --profile web add "github:weimingyu9312/DSHSwitch#main"
+### ① 桌面市场（发布到 npm 后可用）
+
+`dsh-switch` 上 npm registry 后，直接在 DSH Desktop 插件市场安装/更新——走宿主 generation 机制，自动更新可用。
+
+### ② 一键安装脚本（免 pnpm、可离线）
+
+```bash
+git clone https://github.com/weimingyu9312/DSHSwitch.git
+cd DSHSwitch
+node install.mjs                 # 自动探测 DSH_HOME 与 web profile
+node install.mjs --profile web --home <DSH_HOME> --dry-run   # 只预览不落盘
 ```
 
-Host 运行依赖 `@deepseek-ai/schemastery`（连同传递依赖 `@deepseek-ai/cosmokit` 与纯类型的 `@standard-schema/spec`）已**随本仓库入库**，vendored 在 `node_modules/` 下——clone 即用，无需任何额外处理。**不要 `npm install`**：插件经 junction 装入 profile，Node 解析不到 profile 自己的 node_modules，改用符号链接会产生 reparse 链导致启动失败（完整论证见 `lib/index.js` 头注释）。
+脚本定位 `DSH_HOME`（环境变量优先；否则按 `%APPDATA%\dsh-desktop\harness` / `~/Library/Application Support/dsh-desktop/harness` / `~/.config/dsh-desktop/harness` / `~/.dsh` 顺序探测），把包体（含 vendored 依赖）复制进 `<profile>/node_modules/dsh-switch/`，并在 profile manifest 的**两处**登记（`dependencies["dsh-switch"]` 与 `dsh.profile.bundles`），写回一律 UTF-8 **无 BOM**。脚本幂等，且绝不触碰 `dsh.desktop.generationProjection`（那是市场 staging 私有层）。装完**重启 DSH Desktop** 让 host 半加载。
+
+### ③ 手工合并（附录）
+
+把仓库（连同 `node_modules/` vendor 树）复制到 `<DSH_HOME>/profiles/web/node_modules/dsh-switch/`，再编辑 `<DSH_HOME>/profiles/web/package.json`：在 `dependencies` 加 `"dsh-switch": "file:./node_modules/dsh-switch"`，并在 `dsh.profile.bundles` 数组追加 `"dsh-switch"`。保存为无 BOM UTF-8（PowerShell `Set-Content -Encoding UTF8` 会带 BOM 打断宿主 JSON 解析——用 `[IO.File]::WriteAllText` 或无 BOM 编辑器）。两处登记缺一不可，缺了宿主 reconcile 会跳过该 bundle。之后重启 DSH Desktop。
+
+Host 运行依赖 `@deepseek-ai/schemastery`（连同传递依赖 `@deepseek-ai/cosmokit` 与纯类型的 `@standard-schema/spec`）已**随本仓库入库**，vendored 在 `node_modules/` 下——clone 即用，无需任何额外处理。**vendored 版本必须与目标宿主发行版一致**（当前 schemastery 3.18.2 / cosmokit 1.8.3 = DSH Desktop 0.8.2），升级时三个包要同步刷新。**不要 `npm install`**：插件经 junction 装入 profile，Node 解析不到 profile 自己的 node_modules，改用符号链接会产生 reparse 链导致启动失败（完整论证见 `lib/index.js` 头注释）。
+
+## 兼容性
+
+| 契约 | 已验证宿主 |
+|------|-----------|
+| 插槽 `conversation.input.left` + `settings.section`；composer face `inputActions.setDraft` | DSH Desktop 0.8.2（web profile） |
+| 降级形态：插槽未下发 `inputActions`（`faces: []`） | 退回 `execCommand('insertText')` DOM 兜底通道——可靠性下降但仍可用 |
+
+最低支持：提供 `inputActions` face 的 dsh-web-app 构建（0.8.x 系）。更早、没有这两个插槽的宿主构建不渲染任何按钮（静默、无害）。
 
 ## 使用
 
@@ -87,21 +109,21 @@ __dshSwitch.insert("/plan")        // 手动跑一次插入,看草稿有没有�
 
 ## 开发
 
-本仓库以 junction 链接装进 profile，改工作区文件即生效：
+本仓库以 junction 链接装进 profile，改工作区文件即生效。插件分宿主/客户端两半，**热更新不对称**——判断"改了没生效"前先确认动了哪一半：
 
-- **Client 半（`lib/client.js`）**：刷新浏览器页面即可，无需重启服务
-- **Host 半（`lib/index.js`、`package.json`）**：重启宿主进程（`dsh web` Ctrl+C 重跑 / 完全重启 DSH Desktop）
+| 改动文件 | 需要的动作 |
+|----------|-----------|
+| `lib/client.js`（按钮栏、设置面板、插入逻辑） | 刷新浏览器页面即可 |
+| `lib/index.js`、`package.json`、`cordis.patch.yml`（host 半） | 完全重启宿主进程（`dsh web` Ctrl+C 重跑 / 彻底退出 DSH Desktop） |
+| 按钮配置（设置面板里改） | 无需任何动作——落 Host settings.yaml 后即时生效 |
 
 ```bash
 node test/client.test.cjs   # 或 npm test — 32 项 jsdom 行为测试（迁移规则、face 路由、chip/相位闸、退役符号回归）
 node test/preview.cjs       # 离线渲染设置面板到 .preview/preview-{dark,light}.html 核对布局
+node install.mjs --dry-run  # 发版前用假 DSH_HOME 验证安装脚本
 ```
 
-### 变更记录
-
-- **v1.5.1** —— Host 运行依赖闭包（`@deepseek-ai/schemastery` 及其依赖）随仓库入库，git clone 开箱即用；同步至 schemastery 3.18.2 / cosmokit 1.8.3
-- **v1.5.0** —— 移除 `toggle` 开关命令类型：不再执行宿主命令，只剩单次插入；存量 toggle 按钮自动迁移
-- **v1.4.0** —— 移除 `persistent` 持久插入类型及其武装注册表；插入改走宿主 `setDraft` 通道
+发布历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

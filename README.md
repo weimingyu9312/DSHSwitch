@@ -6,7 +6,7 @@ DSH plugin that adds customizable switch buttons to the left of the chat compose
 
 ## Features
 
-Buttons have a single behavior (`mode: "insert"`, one-shot insertion): each click inserts `/command ` **before** the existing content of the input box (at the beginning when it is empty); click again to insert again. Nothing is executed on the host, there is no persistent state, and the visual style is blue text + a ⌨ icon.
+Buttons have a single behavior (`mode: "insert"`, one-shot insertion): each click inserts `/command ` **before** the existing content of the input box (at the beginning when it is empty); click again to insert again. Nothing is executed on the host, there is no persistent state, and buttons are rendered as plain blue text labels (no icon).
 
 - **Settings panel**: Settings → "Switch Buttons" — add, edit, delete, enable/disable buttons; the bottom of the panel shows a live bilingual (zh/en) reference of the slash commands available in the current session
 - **Persistent config**: stored under the `dsh-switch` namespace of the Host-side `settings.yaml`, survives browser cache clears; localStorage is only a first-paint cache
@@ -14,15 +14,37 @@ Buttons have a single behavior (`mode: "insert"`, one-shot insertion): each clic
 
 ## Installation
 
-```bash
-# Local development install (junction link, edits take effect immediately)
-dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
+> ⚠️ **Do not run `dsh plugin add` on a profile that already contains git dependencies** (e.g. `aegis`): the CLI forwards to pnpm, whose git resolution can hang silently forever in that situation. Use path ② below — it needs no pnpm and no network.
 
-# Or install from git (public repo)
-dsh plugin --profile web add "github:weimingyu9312/DSHSwitch#main"
+### ① Desktop marketplace (once published to npm)
+
+When `dsh-switch` is available on the npm registry, install/update it from the DSH Desktop plugin marketplace — this uses the host's generation mechanism and keeps automatic updates working.
+
+### ② One-shot installer script (no pnpm, works offline)
+
+```bash
+git clone https://github.com/weimingyu9312/DSHSwitch.git
+cd DSHSwitch
+node install.mjs                 # auto-detects DSH_HOME and the web profile
+node install.mjs --profile web --home <DSH_HOME> --dry-run   # preview only
 ```
 
-The Host runtime dependency `@deepseek-ai/schemastery` (plus its transitive deps `@deepseek-ai/cosmokit` and the type-only `@standard-schema/spec`) is **vendored into this repository** under `node_modules/` — a fresh clone works out of the box. Do **not** run `npm install`: the plugin is installed into a profile as a junction, so Node cannot resolve the profile's own `node_modules`, and switching to symlinks creates a reparse chain that breaks startup (full reasoning in the header comment of `lib/index.js`).
+The script locates `DSH_HOME` (env var wins; else `%APPDATA%\dsh-desktop\harness` / `~/Library/Application Support/dsh-desktop/harness` / `~/.config/dsh-desktop/harness` / `~/.dsh`), copies the package body (incl. vendored deps) into `<profile>/node_modules/dsh-switch/`, and registers it in **both** required places of the profile manifest (`dependencies["dsh-switch"]` and `dsh.profile.bundles`) as UTF-8 **without BOM**. It is idempotent and never touches `dsh.desktop.generationProjection` (that layer belongs to the marketplace staging). **Restart DSH Desktop afterwards** for the host half to load.
+
+### ③ Manual merge (appendix)
+
+Copy the repository (with its `node_modules/` vendor tree) to `<DSH_HOME>/profiles/web/node_modules/dsh-switch/`, then edit `<DSH_HOME>/profiles/web/package.json`: add `"dsh-switch": "file:./node_modules/dsh-switch"` under `dependencies` and append `"dsh-switch"` to the `dsh.profile.bundles` array. Save as UTF-8 without BOM (PowerShell's `Set-Content -Encoding UTF8` adds a BOM and breaks the host parser — use `[IO.File]::WriteAllText` or an editor without BOM). Both registrations are required; missing either makes the host reconcile skip the bundle. Restart DSH Desktop.
+
+The Host runtime dependency `@deepseek-ai/schemastery` (plus its transitive deps `@deepseek-ai/cosmokit` and the type-only `@standard-schema/spec`) is **vendored into this repository** under `node_modules/` — a fresh clone works out of the box. The vendored versions must match the target host release (currently schemastery 3.18.2 / cosmokit 1.8.3 = DSH Desktop 0.8.2); when bumping them, refresh all three packages together. Do **not** run `npm install`: the plugin is installed into a profile as a junction, so Node cannot resolve the profile's own `node_modules`, and switching to symlinks creates a reparse chain that breaks startup (full reasoning in the header comment of `lib/index.js`).
+
+## Compatibility
+
+| Contract | Verified against |
+|----------|------------------|
+| Slots `conversation.input.left` + `settings.section`; composer face `inputActions.setDraft` | DSH Desktop 0.8.2 (web profile) |
+| Degraded mode: slot delivers no `inputActions` (`faces: []`) | falls back to the `execCommand('insertText')` DOM channel — reduced reliability, still functional |
+
+Minimum host: any dsh-web-app build that provides the `inputActions` face (0.8.x line). Older builds without the two slots render no buttons at all (silent, harmless).
 
 ## Usage
 
@@ -87,21 +109,21 @@ The sole insertion behavior is a **draft write** (never command execution): the 
 
 ## Development
 
-This repository is linked into the profile via a junction, so editing workspace files takes effect directly:
+This repository is linked into the profile via a junction, so editing workspace files takes effect directly. The plugin ships as two halves with **asymmetric hot-reload** — know which one you touched before judging a change "not applied":
 
-- **Client half (`lib/client.js`)**: just refresh the browser page, no service restart needed
-- **Host half (`lib/index.js`, `package.json`)**: restart the host process (`dsh web`, Ctrl+C and rerun / fully restart DSH Desktop)
+| Changed file(s) | Action required |
+|-----------------|-----------------|
+| `lib/client.js` (button bar, settings panel, insertion logic) | refresh the browser page only |
+| `lib/index.js`, `package.json`, `cordis.patch.yml` (host half) | fully restart the host process (`dsh web`: Ctrl+C and rerun / quit DSH Desktop completely) |
+| Button configuration (via the settings panel) | nothing — saved to Host `settings.yaml` and applied live |
 
 ```bash
 node test/client.test.cjs   # or npm test — 32 jsdom behavior tests (migration rules, face routing, chip/phase gates, retired-symbol regressions)
 node test/preview.cjs       # offline-render the settings panel to .preview/preview-{dark,light}.html for layout review
+node install.mjs --dry-run  # verify the installer against a fake DSH_HOME before shipping
 ```
 
-### Changelog
-
-- **v1.5.1** — the vendored Host runtime closure (`@deepseek-ai/schemastery` + deps) is committed to the repo, so git clones work out of the box; synced to schemastery 3.18.2 / cosmokit 1.8.3
-- **v1.5.0** — removed the `toggle` switch-command type: host commands are never executed, only one-shot insertion remains; legacy toggle buttons migrate automatically
-- **v1.4.0** — removed the `persistent` sticky-insertion type and its arming registry; insertion now goes through the host `setDraft` channel
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 
