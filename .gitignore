@@ -1,0 +1,12 @@
+# dependencies
+node_modules/
+
+# local tooling / scratch state
+.agent-teams/
+.preview/
+
+# logs & editor noise
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
