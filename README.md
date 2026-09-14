@@ -1,39 +1,41 @@
 # dsh-switch
 
-DSH 插件 — 在 DSH Web GUI 聊天输入框左侧添加可自定义的快捷按钮。点击按钮把斜杠命令插入输入框，补充参数后手动发送。
+[中文文档](README.zh-CN.md)
 
-## 功能
+DSH plugin that adds customizable switch buttons to the left of the chat composer in the DSH Web GUI. Clicking a button inserts a slash command into the input box; you then fill in any arguments and send manually.
 
-按钮只有一种行为（`mode: "insert"`，单次插入）：每次点击把 `/命令 ` 插入到输入框已有内容**之前**（内容为空时就是开头），再点再插。不执行任何宿主命令、没有常驻状态，视觉上是蓝色文字 + ⌨ 图标。
+## Features
 
-- **设置面板**：Settings → "Switch Buttons"，可添加、编辑、删除、启用/禁用按钮；底部动态展示当前会话可用的斜杠命令参考（中英双语）
-- **配置持久化**：保存在 Host 端 settings.yaml 的 `dsh-switch` 命名空间，清浏览器缓存不丢；localStorage 仅作首屏缓存
-- **旧配置自动迁移**：早期版本的 `toggle`（开关命令）、`persistent`（持久插入）类型已移除，存量按钮读取时自动降级为单次插入（保留 `command`，丢弃 `commandOff`/`projection`），不会消失
+Buttons have a single behavior (`mode: "insert"`, one-shot insertion): each click inserts `/command ` **before** the existing content of the input box (at the beginning when it is empty); click again to insert again. Nothing is executed on the host, there is no persistent state, and the visual style is blue text + a ⌨ icon.
 
-## 安装
+- **Settings panel**: Settings → "Switch Buttons" — add, edit, delete, enable/disable buttons; the bottom of the panel shows a live bilingual (zh/en) reference of the slash commands available in the current session
+- **Persistent config**: stored under the `dsh-switch` namespace of the Host-side `settings.yaml`, survives browser cache clears; localStorage is only a first-paint cache
+- **Automatic migration of legacy configs**: the old `toggle` (switch command) and `persistent` (sticky insertion) button types were removed; existing buttons are downgraded to one-shot insertion on read (the `command` is kept, `commandOff`/`projection` are dropped), so they never disappear
+
+## Installation
 
 ```bash
-# 本地开发安装（junction 链接，改代码即生效）
+# Local development install (junction link, edits take effect immediately)
 dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
 
-# 或从 git 安装
+# Or install from git
 dsh plugin --profile web add "github:user/dsh-switch#main"
 ```
 
-Host 侧依赖 `@deepseek-ai/schemastery` 以真实目录 vendored 在 `node_modules/` 下，**不要 `npm install`**：插件经 junction 装入 profile 时 Node 解析不到 profile 自己的 node_modules，改用符号链接会产生 reparse 链导致启动失败。对外分发时需另行处理这三个包（详见 `lib/index.js` 头注释）。
+The Host-side dependency `@deepseek-ai/schemastery` is vendored as real directories under `node_modules/`. Do **not** run `npm install`: when the plugin is installed into a profile via a junction, Node cannot resolve the profile's own `node_modules`, and switching to symlinks creates a reparse chain that breaks startup. For external distribution these three packages need separate handling (see the header comment in `lib/index.js`).
 
-## 使用
+## Usage
 
-### 配置按钮
+### Configuring buttons
 
-1. 打开 DSH Web GUI → Settings → Switch Buttons
-2. 点击 "+ 添加按钮"
-3. 每张卡片两个字段：
-   - **名称**：按钮显示文本（如 "Plan Off"）
-   - **斜杠命令**：要插入的命令（如 `/plan off`）
-4. 拨动开关启用/禁用；点击 × 删除
+1. Open the DSH Web GUI → Settings → Switch Buttons
+2. Click "+ Add button"
+3. Each card has two fields:
+   - **Label**: button text (e.g. "Plan Off")
+   - **Slash command**: the command to insert (e.g. `/plan off`)
+4. Toggle the switch to enable/disable; click × to delete
 
-### 默认配置
+### Default configuration
 
 ```json
 {
@@ -44,61 +46,61 @@ Host 侧依赖 `@deepseek-ai/schemastery` 以真实目录 vendored 在 `node_mod
 }
 ```
 
-默认值只在 Host 配置里还没有 `buttons` 键时生效；用户改过一次后以存储为准。想恢复默认，删掉 settings.yaml 中 `dsh-switch:` 段并清除浏览器 localStorage 后重启。
+Defaults apply only while the Host config has no `buttons` key yet; once you change anything, the stored value wins. To restore defaults, delete the `dsh-switch:` section from `settings.yaml`, clear the browser's localStorage, and restart.
 
-### 配置字段
+### Configuration fields
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | string | 按钮唯一标识 |
-| `label` | string | 按钮显示文本 |
-| `command` | string | 要插入的斜杠命令 |
-| `mode` | string | 固定 `insert`；旧值（`toggle`/`persistent`/无）读取时自动迁移 |
-| `enabled` | boolean | 是否启用 |
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique button identifier |
+| `label` | string | Button display text |
+| `command` | string | Slash command to insert |
+| `mode` | string | Fixed `insert`; legacy values (`toggle`/`persistent`/missing) are migrated automatically on read |
+| `enabled` | boolean | Whether the button is enabled |
 
-### 验证
+### Verification
 
-1. 输入框左侧出现 switch 按钮
-2. 点击 Plan 按钮：输入框为空 → `/plan ` 出现在开头；已有内容（如 `research pricing`）→ 变成 `/plan research pricing`；按 Enter 正常发送
-3. 设置面板底部显示斜杠命令参考列表
+1. Switch buttons appear to the left of the composer
+2. Click Plan: with an empty input → `/plan ` appears at the start; with existing content (e.g. `research pricing`) → it becomes `/plan research pricing`; Enter sends normally
+3. The settings panel footer shows the slash-command reference list
 
-### 命令没插进输入框时怎么查
+### When a command doesn't land in the input box
 
-浏览器控制台（F12）直接问插件它自己看到了什么：
+Ask the plugin itself what it sees, from the browser console (F12):
 
 ```js
 __dshSwitch.state()                // scopeBound / buttons / faces / draft / editorFound / editorPhase
-__dshSwitch.log()                  // 最近 40 次插入:kind(setDraft|dom|no-editor|skip:stale-snapshot|…)/text/before/after
-__dshSwitch.insert("/plan")        // 手动跑一次插入,看草稿有没有出现命令
+__dshSwitch.log()                  // last 40 insertions: kind(setDraft|dom|no-editor|skip:stale-snapshot|…)/text/before/after
+__dshSwitch.insert("/plan")        // run one insertion manually, check whether the draft gets the command
 ```
 
-常见现象：`faces: []` = 宿主插槽没下发 `inputActions`（老宿主版本），插入退回 DOM 兜底通道、可靠性下降；`editorFound: false` = 输入框 DOM 变了，两条通道都写不进；明细日志用 `localStorage.setItem("dsh-switch-debug","1")` 打开。
+Common symptoms: `faces: []` = the host slot did not deliver `inputActions` (older host version); insertion falls back to the DOM channel with reduced reliability. `editorFound: false` = the composer DOM changed and neither channel can write. Enable verbose logging with `localStorage.setItem("dsh-switch-debug","1")`.
 
-## 架构速览
+## Architecture at a glance
 
-| 文件 | 职责 |
-|------|------|
-| `lib/index.js` | Host 半：注册 `dsh-switch` settings 命名空间（仅 `buttons` 一个键） |
-| `lib/client.js` | Client 半：按钮栏（注入 `conversation.input.left` 槽）、设置面板（注入 `settings.section` 槽）、配置读写与迁移 |
+| File | Responsibility |
+|------|----------------|
+| `lib/index.js` | Host half: registers the `dsh-switch` settings namespace (a single `buttons` key) |
+| `lib/client.js` | Client half: button bar (injected into the `conversation.input.left` slot), settings panel (injected into the `settings.section` slot), config read/write and migration |
 
-插入的唯一行为是**草稿写入**（不执行命令）：首选走宿主 composer face 的 `inputActions.setDraft(命令 + 原草稿)` —— 经编辑器自身 state 提交，不会被 Lexical 调和抹掉；草稿含引用 chip、提交机锁定、或该会话无 face 时退回 `execCommand('insertText')` 兜底。配置改动乐观渲染 + 写 localStorage 镜像 + `scope.set("buttons")` 落 Host。
+The sole insertion behavior is a **draft write** (never command execution): the preferred path is the host composer face's `inputActions.setDraft(command + existing draft)` — committed through the editor's own state, so it cannot be wiped by Lexical reconciliation. When the draft contains citation chips, the commit machine is locked, or the session has no face, it falls back to `execCommand('insertText')`. Config changes render optimistically, mirror to localStorage, and persist via `scope.set("buttons")` on the Host.
 
-## 开发
+## Development
 
-本仓库以 junction 链接装进 profile，改工作区文件即生效：
+This repository is linked into the profile via a junction, so editing workspace files takes effect directly:
 
-- **Client 半（`lib/client.js`）**：刷新浏览器页面即可，无需重启服务
-- **Host 半（`lib/index.js`、`package.json`）**：重启宿主进程（`dsh web` Ctrl+C 重跑 / 完全重启 DSH Desktop）
+- **Client half (`lib/client.js`)**: just refresh the browser page, no service restart needed
+- **Host half (`lib/index.js`, `package.json`)**: restart the host process (`dsh web`, Ctrl+C and rerun / fully restart DSH Desktop)
 
 ```bash
-node test/client.test.cjs   # 或 npm test — 32 项 jsdom 行为测试（迁移规则、face 路由、chip/相位闸、退役符号回归）
-node test/preview.cjs       # 离线渲染设置面板到 .preview/preview-{dark,light}.html 核对布局
+node test/client.test.cjs   # or npm test — 32 jsdom behavior tests (migration rules, face routing, chip/phase gates, retired-symbol regressions)
+node test/preview.cjs       # offline-render the settings panel to .preview/preview-{dark,light}.html for layout review
 ```
 
-### 变更记录
+### Changelog
 
-- **v1.5.0** —— 移除 `toggle` 开关命令类型：不再执行宿主命令，只剩单次插入；存量 toggle 按钮自动迁移
-- **v1.4.0** —— 移除 `persistent` 持久插入类型及其武装注册表；插入改走宿主 `setDraft` 通道
+- **v1.5.0** — removed the `toggle` switch-command type: host commands are never executed, only one-shot insertion remains; legacy toggle buttons migrate automatically
+- **v1.4.0** — removed the `persistent` sticky-insertion type and its arming registry; insertion now goes through the host `setDraft` channel
 
 ## License
 
