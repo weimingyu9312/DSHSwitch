@@ -4,6 +4,26 @@ All notable changes to `dsh-switch` are documented here. This project follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-14
+
+### Fixed
+- Registry installs no longer break at plugin load time. `@deepseek-ai/schemastery`,
+  `@deepseek-ai/cosmokit` and `@standard-schema/spec` moved from optional peers
+  (satisfied only by the vendored tree) to exact-pinned regular `dependencies`, so
+  `npm install dsh-switch` fetches them into the profile's `node_modules` and the
+  static `import z from "@deepseek-ai/schemastery"` in `lib/index.js` resolves.
+- `package.json` `files`: removed the three `node_modules/...` entries — npm forces
+  `node_modules` out of tarballs, so they were inert and misleading.
+- `install.mjs` fallback note now reflects the guaranteed npm-installed copy
+  (previously claimed "relying on the profile's dependency resolution" without
+  verification, which was a silent crash on registry installs).
+- Removed the obsolete "registry install customers must prefer a git clone" caveat
+  from both READMEs; registry installs are now self-sufficient.
+
+### Security / publishing
+- Added `.github/workflows/publish.yml`: trusted-publishing (OIDC) release flow
+  triggered by `v*` tag pushes; no long-lived npm tokens on CI.
+
 ## [1.6.0] - 2026-09-14
 
 ### Added

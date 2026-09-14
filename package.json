@@ -1,6 +1,6 @@
 {
   "name": "dsh-switch",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Customizable switch buttons for the DSH Web GUI composer (one-click slash-command insertion into the draft, config stored in the Host settings document)",
   "type": "module",
   "main": "lib/index.js",
@@ -10,9 +10,6 @@
   },
   "files": [
     "lib",
-    "node_modules/@deepseek-ai/schemastery",
-    "node_modules/@deepseek-ai/cosmokit",
-    "node_modules/@standard-schema/spec",
     "cordis.patch.yml",
     "install.mjs",
     "README.md",
@@ -25,19 +22,11 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
-  "peerDependencies": {
+  "dependencies": {
+    "@deepseek-ai/cosmokit": "1.8.3",
     "@deepseek-ai/schemastery": "3.18.2",
-    "@deepseek-ai/cosmokit": "1.8.3"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/schemastery": {
-      "optional": true,
-      "description": "Satisfied by the vendored tree under node_modules/; pin matches the DSH Desktop 0.8.2 host release."
-    },
-    "@deepseek-ai/cosmokit": {
-      "optional": true,
-      "description": "Transitive runtime dep of schemastery, also vendored; declared so removing the vendor tree is a visible decision, not a silent break."
-    }
+    "@standard-schema/spec": "1.1.0",
+    "dsh-switch": "file:dsh-switch-1.7.0.tgz"
   },
   "repository": {
     "type": "git",

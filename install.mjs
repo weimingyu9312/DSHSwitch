@@ -205,9 +205,10 @@ function installIntoProfile(profileDir, dryRun) {
       if (!found) {
         // npm tarballs cannot carry node_modules/ (npm forces it out), so an
         // `npm install`-delivered copy legitimately has no vendored tree here.
-        // The host half then resolves schemastery through normal Node lookup in
-        // the profile's own node_modules — skip the vendoring step.
-        console.log(`[dsh-switch install] note: ${rel} not vendored here; relying on the profile's dependency resolution.`)
+        // Since v1.7.0 the same packages are declared as regular dependencies,
+        // so the profile's own node_modules is guaranteed to hold them — the
+        // host half resolves schemastery through normal Node lookup there.
+        console.log(`[dsh-switch install] note: ${rel} not vendored here; the profile's npm-installed copy of the dependency is used.`)
         continue
       }
       copyTree(found, path.join(target, rel))

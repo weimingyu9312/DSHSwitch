@@ -35,9 +35,11 @@ node install.mjs --profile web --home <DSH_HOME> --dry-run   # 只预览不落�
 
 把仓库（连同 `node_modules/` vendor 树）复制到 `<DSH_HOME>/profiles/web/node_modules/dsh-switch/`，再编辑 `<DSH_HOME>/profiles/web/package.json`：在 `dependencies` 加 `"dsh-switch": "file:./node_modules/dsh-switch"`，并在 `dsh.profile.bundles` 数组追加 `"dsh-switch"`。保存为无 BOM UTF-8（PowerShell `Set-Content -Encoding UTF8` 会带 BOM 打断宿主 JSON 解析——用 `[IO.File]::WriteAllText` 或无 BOM 编辑器）。两处登记缺一不可，缺了宿主 reconcile 会跳过该 bundle。之后重启 DSH Desktop。
 
-Host 运行依赖 `@deepseek-ai/schemastery`（连同传递依赖 `@deepseek-ai/cosmokit` 与纯类型的 `@standard-schema/spec`）已**随 git 仓库入库**，vendored 在 `node_modules/` 下——clone 即用，无需任何额外处理。**vendored 版本必须与目标宿主发行版一致**（当前 schemastery 3.18.2 / cosmokit 1.8.3 = DSH Desktop 0.8.2），升级时三个包要同步刷新。**不要 `npm install`**：junction/git 安装形态下插件靠这份 vendored 树解析依赖，改用符号链接会产生 reparse 链导致启动失败（完整论证见 `lib/index.js` 头注释）。
+Host 运行依赖 `@deepseek-ai/schemastery`（连同传递依赖 `@deepseek-ai/cosmokit` 与纯类型的 `@standard-schema/spec`）**既随 git 仓库入库**（vendored 在 `node_modules/` 下，clone 即用），**又以正式 npm `dependencies` 声明**（exact 锁版本，所以 registry 的 `npm install dsh-switch` 会自动带上）。**vendored/锁定的版本必须与目标宿主发行版一致**（当前 schemastery 3.18.2 / cosmokit 1.8.3 = DSH Desktop 0.8.2），升级时三个包要同步刷新。junction/git 安装形态下插件靠 vendored 树解析依赖——保留它，且不要换成符号链接（会产生 reparse 链导致启动失败，完整论证见 `lib/index.js` 头注释）。
 
-> **registry 安装注意**：npm 会强制把一切 `node_modules/` 路径剔出发布 tarball，所以 `npm install dsh-switch` 装出来的副本没有 vendored 树。若你从 registry 安装并使用一键脚本/junction 布局，优先改用 git clone；否则请确保 profile 自身 `node_modules` 里有 `@deepseek-ai/schemastery`（宿主本就自带，Node 正常查找即可命中）。
+> **registry 安装已自足**：npm 会强制把一切 `node_modules/` 路径剔出发布 tarball，所以 registry 副本没有 vendored 树；但自 v1.7.0 起三个包已声明为 dependencies，`npm install dsh-switch` 会把精确锁定的版本装进 profile 的 `node_modules`，Node 查找即可命中。一键安装脚本能识别这种布局并跳过 vendoring。
+
+registry 安装注意已合并进上方依赖段，见「registry 安装已自足」。
 
 ## 兼容性
 
