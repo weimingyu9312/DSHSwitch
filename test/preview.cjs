@@ -14,7 +14,22 @@ var PROFILE_MODULES = path.join(
   process.env.APPDATA || "",
   "dsh-desktop", "harness", "profiles", "web", "node_modules"
 );
-var JSDOM = require(path.join(PROFILE_MODULES, "jsdom")).JSDOM;
+/* jsdom's exact seat has moved before (same probe as client.test.cjs). */
+var JSDOM;
+(function () {
+  var harness = path.join(process.env.APPDATA || "", "dsh-desktop", "harness");
+  var candidates = [
+    path.join(PROFILE_MODULES, "jsdom"),
+    path.join(harness, "profiles", "node_modules", "jsdom"),
+    path.join(harness, "profiles", "web", ".dsh-module-fallback", "node_modules", "jsdom"),
+    path.join(harness, "node_modules", "jsdom"),
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    try { JSDOM = require(candidates[i]).JSDOM; return; } catch (_) { /* next */ }
+  }
+  console.error("Cannot load jsdom from the DSH profile — aborting.");
+  process.exit(2);
+})();
 
 var dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
 var win = dom.window;
@@ -79,15 +94,16 @@ function toHtml(node) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Fixture: the shipped defaults + every surviving mode              */
-/*  (the third row keeps a retired `mode: "persistent"` record on     */
-/*  purpose: the panel must render it as 单次插入 / insert)           */
+/*  Fixture: the shipped defaults + every retired mode on record       */
+/*  (rows 1–2 keep `mode: "toggle"` / `"persistent"` on purpose: the   */
+/*  panel must render both as 单次插入 / insert, fields cleaned)       */
 /* ------------------------------------------------------------------ */
 var BUTTONS = [
   { id: "plan", label: "Plan", command: "/plan", commandOff: "/plan off", projection: "plan", mode: "toggle", enabled: true },
-  { id: "teams", label: "团队", command: "/agent-teams", mode: "persistent", enabled: true },
+  { id: "teams", label: "团队", command: "/compact", mode: "persistent", enabled: true },
   { id: "goal", label: "Goal", command: "/goal", mode: "insert", enabled: false },
 ];
+
 var REF = [
   { name: "/plan", desc: "进入或退出计划模式。使用 /plan off 退出。" },
   { name: "/goal", desc: "设置或查看长期任务目标。支持: <目标>, clear, edit <目标>, pause, resume。" },
@@ -108,11 +124,9 @@ function panelHtml() {
     { type: "button", props: { type: "button", className: "dsh-sw-add" }, children: ["+ 添加按钮"] },
     refVnode()
   ));
-  /* Static HTML has no React value binding: mark the matching <option> selected
-   * so the preview shows the same mode text the live panel would. */
-  return html.replace(/<select[^>]*value="([a-z]+)"[^>]*>([\s\S]*?)<\/select>/g, function (all, val, body) {
-    return all.replace('<option value="' + val + '"', '<option selected value="' + val + '"');
-  });
+  /* Static HTML has no React value binding: mark the matching <input> with a
+   * value attribute so the preview shows the same text the live panel would. */
+  return html;
 }
 
 function refVnode() {

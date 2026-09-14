@@ -4,11 +4,13 @@
  * Usage:  node test/client.test.cjs
  * Needs the jsdom installed in the DSH web profile (read-only dependency).
  *
- * Covers: the two surviving button types (开关命令 / 单次插入), the migration of
- * a stored `mode: "persistent"` to "insert", the Host settings plumbing (the
- * retired "armed" key is neither decoded nor written back), and the type-2
- * insert path: host composer face first, legacy DOM insertion only where the
- * face cannot serve (no face / chip-bearing draft / locked submit phase).
+ * Covers: the single surviving button type (单次插入 / insert), the migration of
+ * every stored legacy mode ("toggle", "persistent", legacy `insert: true`, no
+ * mode) to "insert" — with commandOff/projection stripped so a retired toggle
+ * can never execute a host command — the Host settings plumbing (the retired
+ * "armed" key is neither decoded nor written back), and the insert path: host
+ * composer face first, legacy DOM insertion only where the face cannot serve
+ * (no face / chip-bearing draft / locked submit phase).
  */
 var path = require("path");
 
@@ -119,8 +121,10 @@ function resetDraft(text) { composer().textContent = text || ""; }
 function clearLog() { T.insertLog.length = 0; }
 function lastLog() { return T.insertLog[T.insertLog.length - 1]; }
 
-var TOGGLE = { id: "plan", label: "Plan", command: "/plan", commandOff: "/plan off", mode: "toggle", enabled: true };
+var TOGGLE = { id: "plan", label: "Plan", command: "/plan", commandOff: "/plan off", projection: "plan", mode: "toggle", enabled: true };
 var INSERT = { id: "teams", label: "Teams", command: "/agent-teams", mode: "insert", enabled: true };
+/** The post-migration shape of the retired toggle button. */
+var PLAN_INS = { id: "plan", label: "Plan", command: "/plan", mode: "insert", enabled: true };
 
 /** A host composer face: records every setDraft call instead of writing state. */
 function makeFace(initial) {
@@ -153,10 +157,7 @@ function unbindAllFaces() {
 }
 
 /* ------------------------------------------------------------------ */
-console.log("\n— button model: two types, persistent retired —");
-test("MODE_ORDER lists exactly toggle + insert", function () {
-  eq(T.MODE_ORDER.join("|"), "toggle|insert");
-});
+console.log("\n— button model: one type, toggle + persistent retired —");
 test("normalizeButton: stored persistent → insert (same command, one insertion per click)", function () {
   var p = { id: "teams", label: "团队", command: "/agent-teams", mode: "persistent", enabled: true };
   var n = T.normalizeButton(p);
@@ -170,39 +171,50 @@ test("normalizeButton: legacy insert:true → mode insert (flag removed)", funct
   eq(n.mode, "insert");
   ok(!("insert" in n), "legacy insert flag should be dropped");
 });
-test("normalizeButton: legacy single command → toggle", function () {
-  eq(T.normalizeButton({ id: "x", command: "/x" }).mode, "toggle");
+test("normalizeButton: retired toggle → insert, commandOff/projection stripped", function () {
+  var t = { id: "plan", label: "Plan", command: "/plan", commandOff: "/plan off", projection: "plan", mode: "toggle", enabled: true };
+  var n = T.normalizeButton(t);
+  eq(n.mode, "insert");
+  eq(n.command, "/plan", "the on-command survives as the inserted command");
+  ok(!("commandOff" in n), "commandOff must be deleted: nothing may execute an off-command any more");
+  ok(!("projection" in n), "projection must be deleted: no state to project");
+  ok(n !== t, "migration returns a new record");
 });
-test("normalizeButton: surviving modes pass through unchanged (identity)", function () {
-  ["toggle", "insert"].forEach(function (m) {
-    var b = { id: "x", mode: m };
-    ok(T.normalizeButton(b) === b, m + " must keep object identity");
-  });
+test("normalizeButton: legacy single command (no mode) → insert", function () {
+  eq(T.normalizeButton({ id: "x", command: "/x" }).mode, "insert");
+});
+test("normalizeButton: a clean insert record passes through unchanged (identity)", function () {
+  var b = { id: "x", mode: "insert", command: "/x" };
+  ok(T.normalizeButton(b) === b, "insert must keep object identity");
+});
+test("normalizeButton: an insert record still carrying toggle fields is cleaned", function () {
+  var b = { id: "x", mode: "insert", command: "/x", commandOff: "/x off" };
+  var n = T.normalizeButton(b);
+  ok(n !== b, "rewritten");
+  ok(!("commandOff" in n));
 });
 test("normalizeConfig: unchanged list keeps the same object", function () {
-  var c = { buttons: [{ id: "a", mode: "toggle" }] };
+  var c = { buttons: [{ id: "a", mode: "insert", command: "/a" }] };
   ok(T.normalizeConfig(c) === c);
 });
-test("normalizeConfig: mixed legacy + persistent list is migrated", function () {
+test("normalizeConfig: mixed legacy + toggle + persistent list is migrated", function () {
   var c = { buttons: [
     { id: "a", insert: true, command: "/a" },
     { id: "b", command: "/b" },
     { id: "c", command: "/c", mode: "persistent" },
+    { id: "d", command: "/d", commandOff: "/d off", projection: "d", mode: "toggle" },
   ] };
   var n = T.normalizeConfig(c);
-  eq(n.buttons.map(function (b) { return b.mode; }).join("|"), "insert|toggle|insert");
+  eq(n.buttons.map(function (b) { return b.mode; }).join("|"), "insert|insert|insert|insert");
 });
-test("ButtonRow type select offers only the two surviving options", function () {
+test("ButtonRow renders no type select at all (single surviving type)", function () {
   var row = T.ButtonRow({ btn: { id: "c", label: "C", command: "/c", mode: "persistent", enabled: true }, onChange: function () {} });
-  var select = findType(row);
-  ok(select, "a type <select> was rendered");
-  var optionNodes = [].concat.apply([], (select.children || []).filter(Boolean));
-  var values = optionNodes.map(function (o) { return o.props.value; });
-  eq(values.join("|"), "toggle|insert");
-  eq(select.props.value, "insert", "the stored persistent button edits as insert");
+  eq(findType(row), null, "no <select> in the card");
+  var html = JSON.stringify(row);
+  ok(html.indexOf("/c") >= 0, "the command field still renders");
 });
 
-/** Depth-first search for the composer-type <select> in a stub element tree. */
+/** Depth-first search for a <select> in a stub element tree. */
 function findType(node) {
   if (!node || typeof node !== "object") return null;
   if (node.type === "select") return node;
@@ -246,7 +258,7 @@ test("decode accepts a document that still carries a stale armed key and ignores
     var decoded = captured.decode({ buttons: [TOGGLE, { id: "t", command: "/x", mode: "persistent", enabled: true }], armed: ["t"] });
     eq("armed" in decoded, false, "the client must never see an armed list");
     eq(decoded.buttons[1].mode, "insert", "persistent migrated on the read path");
-    eq(captured.decode({ buttons: [TOGGLE], armed: [] }).buttons[0].mode, "toggle");
+    eq(captured.decode({ buttons: [TOGGLE], armed: [] }).buttons[0].mode, "insert", "retired toggle migrated to insert too");
     eq(captured.decode({ armed: ["x"] }), undefined, "no buttons key → undefined (defaults stay in charge)");
   });
 });
@@ -258,14 +270,14 @@ test("subscribeConfig emits the migrated Host value and never arms anything", fu
     try {
       ok(seen, "listener got a synchronous first value");
       ok(!("armed" in seen), "emitted config carries no armed key");
-      eq(seen.buttons.map(function (b) { return b.mode; }).join("|"), "toggle|insert");
+      eq(seen.buttons.map(function (b) { return b.mode; }).join("|"), "insert|insert");
       eq(draftText(), "", "adopting a Host snapshot must not touch the draft any more");
     } finally { off(); }
   });
 });
 test("writeButtons writes ONLY the buttons key", function () {
   withScope({ buttons: [TOGGLE], armed: ["old"] }, function (captured, writes) {
-    T.writeButtons([TOGGLE, { id: "t", label: "T", command: "/x", mode: "insert", enabled: true }]);
+    T.writeButtons([PLAN_INS, { id: "t", label: "T", command: "/x", mode: "insert", enabled: true }]);
     eq(writes.map(function (w) { return w[0]; }).join("|"), "buttons");
     eq(writes[0][1].length, 2);
   });
@@ -289,8 +301,7 @@ test("without a Host scope the client falls back to the cache (no throw)", funct
   finally { off(); }
 });
 
-console.log("\n— type-2 insert: host composer face first —");
-test("empty draft + bound face → setDraft gets the command, DOM left alone", function () {
+console.log("\n— insert path: host composer face first —");test("empty draft + bound face → setDraft gets the command, DOM left alone", function () {
   unbindAllFaces(); resetDraft(""); clearLog();
   var face = makeFace({ draft: "" });
   bindFace("s1", face);
@@ -429,10 +440,31 @@ test("no retired symbol is reachable from the shipped surface", function () {
   ["setArmed", "adoptArmed", "applyHostArmed", "armedCommandsFor", "armedIds", "prependArmedNow",
    "computePrefix", "installDraftWatcher", "loadArmedCache", "pruneArmedTo", "clearComposerText",
    "subscribeArmed", "maybePrependArmedOnEmptyDraft",
+   /* v1.5.0: the toggle type and its whole state plumbing are gone. */
+   "MODE_ORDER", "officialPlanChipPresent", "computeProjectionState",
   ].forEach(function (name) {
     eq(T[name], undefined, "__test." + name + " must be gone");
   });
   eq(localStorage.getItem("dsh-switch-armed"), null, "the armed mirror must no longer exist");
+});
+test("a stored toggle button can never fall through to the execute path", function () {
+  unbindAllFaces(); resetDraft("keep me"); clearLog();
+  var executed = [];
+  var node = T.SwitchButton({
+    btn: { id: "plan", label: "Plan", command: "/plan", commandOff: "/plan off", projection: "plan", mode: "toggle", enabled: true },
+    ctx: { remote: { commands: { execute: function (sid, cmd) { executed.push(cmd); return Promise.resolve({ ok: true }); } } } },
+    sessionId: "s1",
+    useProjection: function () { return { active: true, pending: false }; },
+    localState: false,
+    onLocalStateChange: function () {},
+    busy: false, setBusy: function () {}, error: null, setError: function () {},
+    onPrefixChange: function () {},
+  });
+  ok(node.props.className.indexOf("is-insert") >= 0, "renders as insert: " + node.props.className);
+  node.props.onClick();
+  eq(executed.length, 0, "commands.execute must not run for a migrated record");
+  eq(draftText(), "/plan keep me", "the click inserted the on-command instead");
+  resetDraft("");
 });
 test("a stored persistent button can never fall through to the execute path", function () {
   unbindAllFaces(); resetDraft("keep me"); clearLog();
@@ -452,53 +484,6 @@ test("a stored persistent button can never fall through to the execute path", fu
   eq(executed.length, 0, "commands.execute must not run for a type-2 record");
   eq(draftText(), "/agent-teams keep me");
   resetDraft("");
-});
-
-console.log("\n— official Plan chip coexistence —");
-var PLAN_BTN = { id: "plan", label: "Plan", command: "/plan", commandOff: "/plan off", projection: "plan", mode: "toggle", enabled: true };
-function renderPlanBtn(projectionValue) {
-  return T.SwitchButton({
-    btn: PLAN_BTN,
-    ctx: { remote: { commands: { execute: function () { return Promise.resolve({ ok: true }); } } } },
-    sessionId: undefined,
-    useProjection: function () { return projectionValue; },
-    localState: false,
-    onLocalStateChange: function () {},
-    busy: false, setBusy: function () {}, error: null, setError: function () {},
-    onPrefixChange: function () {},
-  });
-}
-test("probe reports the official chip by its stable class", function () {
-  eq(T.officialPlanChipPresent(), false, "no chip in this document");
-  var chip = document.createElement("button");
-  chip.className = "REN-qG_wrap";
-  var inner = document.createElement("button");
-  inner.className = "REN-qG_chip";
-  chip.appendChild(inner);
-  document.body.appendChild(chip);
-  try {
-    eq(T.officialPlanChipPresent(), true);
-  } finally {
-    document.body.removeChild(chip);
-  }
-});
-test("the plan button hides while the chip is mounted and plan is active", function () {
-  var chip = document.createElement("button");
-  chip.className = "REN-qG_chip";
-  document.body.appendChild(chip);
-  try {
-    eq(renderPlanBtn({ active: true, pending: false }), null, "active + chip → suppressed");
-    var off = renderPlanBtn({ active: false, pending: false });
-    ok(off && off.type === "button", "inactive + chip → still shown");
-    var pend = renderPlanBtn({ active: false, pending: true });
-    ok(pend && pend.type === "button", "pending switch → still shown (exit affordance)");
-  } finally {
-    document.body.removeChild(chip);
-  }
-});
-test("without the chip the plan button behaves exactly as before", function () {
-  var node = renderPlanBtn({ active: true, pending: false });
-  ok(node && node.props.className.indexOf("is-active") >= 0, "active renders highlighted: " + (node && node.props.className));
 });
 
 console.log("\n" + pass + " passed, " + fail + " failed.");
