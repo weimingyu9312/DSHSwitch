@@ -18,8 +18,8 @@ Buttons have a single behavior (`mode: "insert"`, one-shot insertion): each clic
 # Local development install (junction link, edits take effect immediately)
 dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
 
-# Or install from git
-dsh plugin --profile web add "github:user/dsh-switch#main"
+# Or install from git (public repo)
+dsh plugin --profile web add "github:weimingyu9312/DSHSwitch#main"
 ```
 
 The Host-side dependency `@deepseek-ai/schemastery` is vendored as real directories under `node_modules/`. Do **not** run `npm install`: when the plugin is installed into a profile via a junction, Node cannot resolve the profile's own `node_modules`, and switching to symlinks creates a reparse chain that breaks startup. For external distribution these three packages need separate handling (see the header comment in `lib/index.js`).

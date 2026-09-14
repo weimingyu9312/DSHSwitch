@@ -16,6 +16,14 @@
   "peerDependencies": {
     "@deepseek-ai/schemastery": "^3.18.1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/weimingyu9312/DSHSwitch.git"
+  },
+  "homepage": "https://github.com/weimingyu9312/DSHSwitch#readme",
+  "bugs": {
+    "url": "https://github.com/weimingyu9312/DSHSwitch/issues"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

@@ -18,8 +18,8 @@ DSH 插件 — 在 DSH Web GUI 聊天输入框左侧添加可自定义的快捷�
 # 本地开发安装（junction 链接，改代码即生效）
 dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
 
-# 或从 git 安装
-dsh plugin --profile web add "github:user/dsh-switch#main"
+# 或从 git 安装（公开仓库）
+dsh plugin --profile web add "github:weimingyu9312/DSHSwitch#main"
 ```
 
 Host 侧依赖 `@deepseek-ai/schemastery` 以真实目录 vendored 在 `node_modules/` 下，**不要 `npm install`**：插件经 junction 装入 profile 时 Node 解析不到 profile 自己的 node_modules，改用符号链接会产生 reparse 链导致启动失败。对外分发时需另行处理这三个包（详见 `lib/index.js` 头注释）。
