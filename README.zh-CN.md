@@ -22,7 +22,7 @@ dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
 dsh plugin --profile web add "github:weimingyu9312/DSHSwitch#main"
 ```
 
-Host 侧依赖 `@deepseek-ai/schemastery` 以真实目录 vendored 在 `node_modules/` 下，**不要 `npm install`**：插件经 junction 装入 profile 时 Node 解析不到 profile 自己的 node_modules，改用符号链接会产生 reparse 链导致启动失败。对外分发时需另行处理这三个包（详见 `lib/index.js` 头注释）。
+Host 运行依赖 `@deepseek-ai/schemastery`（连同传递依赖 `@deepseek-ai/cosmokit` 与纯类型的 `@standard-schema/spec`）已**随本仓库入库**，vendored 在 `node_modules/` 下——clone 即用，无需任何额外处理。**不要 `npm install`**：插件经 junction 装入 profile，Node 解析不到 profile 自己的 node_modules，改用符号链接会产生 reparse 链导致启动失败（完整论证见 `lib/index.js` 头注释）。
 
 ## 使用
 
@@ -99,6 +99,7 @@ node test/preview.cjs       # 离线渲染设置面板到 .preview/preview-{dark
 
 ### 变更记录
 
+- **v1.5.1** —— Host 运行依赖闭包（`@deepseek-ai/schemastery` 及其依赖）随仓库入库，git clone 开箱即用；同步至 schemastery 3.18.2 / cosmokit 1.8.3
 - **v1.5.0** —— 移除 `toggle` 开关命令类型：不再执行宿主命令，只剩单次插入；存量 toggle 按钮自动迁移
 - **v1.4.0** —— 移除 `persistent` 持久插入类型及其武装注册表；插入改走宿主 `setDraft` 通道
 

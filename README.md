@@ -22,7 +22,7 @@ dsh plugin --profile web add link:D:\DSHPlugin\DSHSwitch
 dsh plugin --profile web add "github:weimingyu9312/DSHSwitch#main"
 ```
 
-The Host-side dependency `@deepseek-ai/schemastery` is vendored as real directories under `node_modules/`. Do **not** run `npm install`: when the plugin is installed into a profile via a junction, Node cannot resolve the profile's own `node_modules`, and switching to symlinks creates a reparse chain that breaks startup. For external distribution these three packages need separate handling (see the header comment in `lib/index.js`).
+The Host runtime dependency `@deepseek-ai/schemastery` (plus its transitive deps `@deepseek-ai/cosmokit` and the type-only `@standard-schema/spec`) is **vendored into this repository** under `node_modules/` — a fresh clone works out of the box. Do **not** run `npm install`: the plugin is installed into a profile as a junction, so Node cannot resolve the profile's own `node_modules`, and switching to symlinks creates a reparse chain that breaks startup (full reasoning in the header comment of `lib/index.js`).
 
 ## Usage
 
@@ -99,6 +99,7 @@ node test/preview.cjs       # offline-render the settings panel to .preview/prev
 
 ### Changelog
 
+- **v1.5.1** — the vendored Host runtime closure (`@deepseek-ai/schemastery` + deps) is committed to the repo, so git clones work out of the box; synced to schemastery 3.18.2 / cosmokit 1.8.3
 - **v1.5.0** — removed the `toggle` switch-command type: host commands are never executed, only one-shot insertion remains; legacy toggle buttons migrate automatically
 - **v1.4.0** — removed the `persistent` sticky-insertion type and its arming registry; insertion now goes through the host `setDraft` channel
 

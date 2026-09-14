@@ -1,5 +1,14 @@
 # dependencies
 node_modules/
+# ...except the vendored Host runtime closure, committed so a fresh clone
+# works out of the box (see the dependency note in lib/index.js). Negations
+# must re-include each parent directory, and come after `node_modules/`.
+!node_modules/
+!node_modules/@deepseek-ai/
+!node_modules/@deepseek-ai/schemastery/
+!node_modules/@deepseek-ai/cosmokit/
+!node_modules/@standard-schema/
+!node_modules/@standard-schema/spec/
 
 # local tooling / scratch state
 .agent-teams/
