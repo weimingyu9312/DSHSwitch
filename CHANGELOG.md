@@ -26,8 +26,11 @@ All notable changes to `dsh-switch` are documented here. This project follows
 - Peer dependencies pinned to the host release they are vendored against:
   `@deepseek-ai/schemastery` `3.18.2` (was `^3.18.1`), plus the transitive
   runtime dep `@deepseek-ai/cosmokit` `1.8.3` declared explicitly.
-- `files` whitelist added so a registry tarball ships lib/, vendor tree,
-  patch manifest, installers and docs only.
+- `files` whitelist added so a registry tarball ships lib/, patch manifest,
+  installers and docs only. (npm strips every `node_modules/` path from
+  tarballs — the vendored tree cannot ship via the registry; documented in
+  both READMEs, and `install.mjs` now tolerates its absence by falling back
+  to the profile's own dependency resolution.)
 
 ## [1.5.1] - 2026-09-14
 

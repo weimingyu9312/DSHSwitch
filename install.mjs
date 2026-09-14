@@ -191,10 +191,26 @@ function installIntoProfile(profileDir, dryRun) {
         fs.copyFileSync(s, path.join(target, item))
       }
     }
+    // Vendored deps may sit next to the bundle (git clone) or one level up
+    // (npm-installed copy inside a profile node_modules tree — pnpm layout).
+    const vendorRoots = [here, path.join(here, ".."), path.join(here, "..", "..")]
+      .map((root) => path.join(root, "node_modules"))
+      .filter((nm) => fs.existsSync(nm))
     for (const rel of VENDORED_ROOTS) {
-      const s = path.join(here, rel)
-      if (!fs.existsSync(s)) fail(`vendored dependency missing: ${rel} — clone the full repo, not a partial checkout`)
-      copyTree(s, path.join(target, rel))
+      let found = null
+      for (const nm of vendorRoots) {
+        const cand = path.join(nm, rel.replace(/^node_modules\//, ""))
+        if (fs.existsSync(cand)) { found = cand; break }
+      }
+      if (!found) {
+        // npm tarballs cannot carry node_modules/ (npm forces it out), so an
+        // `npm install`-delivered copy legitimately has no vendored tree here.
+        // The host half then resolves schemastery through normal Node lookup in
+        // the profile's own node_modules — skip the vendoring step.
+        console.log(`[dsh-switch install] note: ${rel} not vendored here; relying on the profile's dependency resolution.`)
+        continue
+      }
+      copyTree(found, path.join(target, rel))
     }
   }
 
