@@ -1,6 +1,6 @@
 {
   "name": "dsh-switch",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Customizable switch buttons for the DSH Web GUI composer (one-click slash-command insertion into the draft, config stored in the Host settings document)",
   "type": "module",
   "main": "lib/index.js",

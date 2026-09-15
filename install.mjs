@@ -53,6 +53,11 @@ function parseArgs(argv) {
     }
   }
   if (!out.profile) fail("--profile requires a value")
+  // Refuse anything that could escape the profiles/ directory (path traversal)
+  // or sneak in a nested path: a profile name is a single directory name.
+  if (/[\\/]/.test(out.profile) || out.profile === "." || out.profile === "..") {
+    fail(`invalid profile name: ${out.profile}`)
+  }
   return out
 }
 

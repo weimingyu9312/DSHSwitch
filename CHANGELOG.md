@@ -4,6 +4,20 @@ All notable changes to `dsh-switch` are documented here. This project follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-09-15
+
+### Fixed
+- Switch-button ids no longer collide when two buttons are added within the same
+  millisecond (a monotonic `uidSeq` suffix was added to `Date.now()`; previously
+  the same id could produce duplicate React keys and ambiguous settings rows).
+- `install.mjs` now rejects `--profile` values containing path separators or
+  `.` / `..`, so a profile name can never escape the `profiles/` directory.
+
+### Docs
+- Corrected the `1.7.0` changelog entry: the publish workflow authenticates with
+  the repository's `NPM_TOKEN` secret and triggers on `release: published`
+  (not the earlier planned OIDC / `v*`-tag design).
+
 ## [1.7.0] - 2026-09-14
 
 ### Fixed
@@ -21,8 +35,9 @@ All notable changes to `dsh-switch` are documented here. This project follows
   from both READMEs; registry installs are now self-sufficient.
 
 ### Security / publishing
-- Added `.github/workflows/publish.yml`: trusted-publishing (OIDC) release flow
-  triggered by `v*` tag pushes; no long-lived npm tokens on CI.
+- Added `.github/workflows/publish.yml`: publishes to npm when a GitHub Release
+  is published (`release: published`), authenticating with the repository's
+  `NPM_TOKEN` secret (npm Automation token, 2FA-bypass).
 
 ## [1.6.0] - 2026-09-14
 
